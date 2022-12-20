@@ -1,24 +1,39 @@
 import * as React from 'react';
 
 import * as logger from './logger';
-import { Handler, WizardProps } from './types';
+import { Handler, HashKeys, WizardProps } from './types';
 import WizardContext from './wizardContext';
 
 const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
-  ({ header, footer, children, wrapper: Wrapper, startIndex = 0 }) => {
+  ({
+    header,
+    footer,
+    children,
+    wrapper: Wrapper,
+    startIndex = 0,
+    hashEnabled = false,
+  }) => {
     const [activeStep, setActiveStep] = React.useState(startIndex);
     const [isLoading, setIsLoading] = React.useState(false);
     const hasNextStep = React.useRef(true);
     const hasPreviousStep = React.useRef(false);
     const nextStepHandler = React.useRef<Handler>(() => {});
     const stepCount = React.Children.toArray(children).length;
+    const hashKeys: HashKeys = { hashes: {}, steps: {} };
 
     hasNextStep.current = activeStep < stepCount - 1;
     hasPreviousStep.current = activeStep > 0;
 
+    const updateHash = (stepNumber: number) => {
+      window.location.hash = hashKeys.steps[stepNumber];
+    };
+
     const goToNextStep = React.useRef(() => {
       if (hasNextStep.current) {
         setActiveStep((activeStep) => activeStep + 1);
+        if (hashEnabled) {
+          updateHash(activeStep + 1);
+        }
       }
     });
 
@@ -26,6 +41,9 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
       if (hasPreviousStep.current) {
         nextStepHandler.current = null;
         setActiveStep((activeStep) => activeStep - 1);
+        if (hashEnabled) {
+          updateHash(activeStep - 1);
+        }
       }
     });
 
@@ -33,6 +51,9 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
       if (stepIndex >= 0 && stepIndex < stepCount) {
         nextStepHandler.current = null;
         setActiveStep(stepIndex);
+        if (hashEnabled) {
+          updateHash(stepIndex);
+        }
       } else {
         if (__DEV__) {
           logger.log(
@@ -68,6 +89,24 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
       }
     });
 
+    const getHash = () => decodeURI(window.location.hash).replace(/^#/, '');
+
+    if (hashEnabled) {
+      React.Children.toArray(children).forEach((child: React.ReactNode, i) => {
+        const hashKey: string =
+          (child as React.ReactElement).props.hashKey || `step${i + 1}`;
+        hashKeys.steps[i] = hashKey;
+        hashKeys.hashes[hashKey] = i;
+      });
+
+      updateHash(activeStep);
+
+      // const hash = getHash();
+      // if (hash) {
+      //   goToStep.current(hashKeys.hashes[hash]);
+      // }
+    }
+
     const wizardValue = React.useMemo(
       () => ({
         nextStep: doNextStep.current,
@@ -79,8 +118,9 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
         isFirstStep: !hasPreviousStep.current,
         isLastStep: !hasNextStep.current,
         goToStep: goToStep.current,
+        hashKeys,
       }),
-      [activeStep, stepCount, isLoading],
+      [activeStep, stepCount, isLoading, hashKeys],
     );
 
     const activeStepContent = React.useMemo(() => {
@@ -118,6 +158,20 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
           : activeStepContent,
       [Wrapper, activeStepContent],
     );
+
+    React.useEffect(() => {
+      const onHashChange = () => {
+        goToStep.current(hashKeys.hashes[getHash()]);
+      };
+
+      if (hashEnabled) {
+        window.addEventListener('hashchange', onHashChange);
+      }
+
+      return () => {
+        window.removeEventListener('hashchange', onHashChange);
+      };
+    }, [hashEnabled, hashKeys.hashes]);
 
     return (
       <WizardContext.Provider value={wizardValue}>

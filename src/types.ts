@@ -18,6 +18,7 @@ export type WizardProps = {
    * ```
    */
   wrapper?: React.ReactElement;
+  hashEnabled?: boolean;
 };
 
 export type WizardValues = {
@@ -56,7 +57,13 @@ export type WizardValues = {
   isFirstStep: boolean;
   /** Indicate if the current step is the last step (aka no next step) */
   isLastStep: boolean;
+  hashKeys: HashKeys;
 };
 
 /** Console log levels */
 export type LogLevel = 'info' | 'error' | 'warn';
+
+export type HashKeys = {
+  hashes: { [key: string]: number };
+  steps: { [key: number]: string };
+};
