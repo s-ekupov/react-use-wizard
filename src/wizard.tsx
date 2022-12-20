@@ -100,11 +100,6 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
       });
 
       updateHash(activeStep);
-
-      // const hash = getHash();
-      // if (hash) {
-      //   goToStep.current(hashKeys.hashes[hash]);
-      // }
     }
 
     const wizardValue = React.useMemo(
