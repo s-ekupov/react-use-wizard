@@ -13,20 +13,35 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
     startIndex = 0,
     hashEnabled = false,
   }) => {
-    const [activeStep, setActiveStep] = React.useState(startIndex);
+    const hashKeys: HashKeys = { hashes: {}, steps: {} };
+    let initialStep = startIndex;
+
+    const updateHash = (stepNumber: number) => {
+      window.location.hash = hashKeys.steps[stepNumber];
+    };
+
+    if (hashEnabled) {
+      React.Children.toArray(children).forEach((child: React.ReactNode, i) => {
+        const hashKey: string =
+          (child as React.ReactElement).props.hashKey || `step${i + 1}`;
+        hashKeys.steps[i] = hashKey;
+        hashKeys.hashes[hashKey] = i;
+      });
+
+      const hash = decodeURI(window.location.hash).replace(/^#/, '');
+      initialStep = hashKeys.hashes[hash] || startIndex;
+      updateHash(initialStep);
+    }
+
+    const [activeStep, setActiveStep] = React.useState(initialStep);
     const [isLoading, setIsLoading] = React.useState(false);
     const hasNextStep = React.useRef(true);
     const hasPreviousStep = React.useRef(false);
     const nextStepHandler = React.useRef<Handler>(() => {});
     const stepCount = React.Children.toArray(children).length;
-    const hashKeys: HashKeys = { hashes: {}, steps: {} };
 
     hasNextStep.current = activeStep < stepCount - 1;
     hasPreviousStep.current = activeStep > 0;
-
-    const updateHash = (stepNumber: number) => {
-      window.location.hash = hashKeys.steps[stepNumber];
-    };
 
     const goToNextStep = React.useRef(() => {
       if (hasNextStep.current) {
@@ -89,19 +104,6 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
       }
     });
 
-    const getHash = () => decodeURI(window.location.hash).replace(/^#/, '');
-
-    if (hashEnabled) {
-      React.Children.toArray(children).forEach((child: React.ReactNode, i) => {
-        const hashKey: string =
-          (child as React.ReactElement).props.hashKey || `step${i + 1}`;
-        hashKeys.steps[i] = hashKey;
-        hashKeys.hashes[hashKey] = i;
-      });
-
-      updateHash(activeStep);
-    }
-
     const wizardValue = React.useMemo(
       () => ({
         nextStep: doNextStep.current,
@@ -156,7 +158,11 @@ const Wizard: React.FC<React.PropsWithChildren<WizardProps>> = React.memo(
 
     React.useEffect(() => {
       const onHashChange = () => {
-        goToStep.current(hashKeys.hashes[getHash()]);
+        const hash = decodeURI(window.location.hash).replace(/^#/, '');
+        const hashStep = hashKeys.hashes[hash];
+        if (hashStep !== undefined) {
+          goToStep.current(hashKeys.hashes[hash]);
+        }
       };
 
       if (hashEnabled) {
